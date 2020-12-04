@@ -20,6 +20,7 @@ import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
@@ -43,8 +44,7 @@ public class RecordService extends Service {
     private static final int SAMPLE_RATE = 48000;
     private static final int CHANNELS = 2;
 
-    private final Handler handler = new ConnectionHandler(this);
-    private MediaProjectionManager mediaProjectionManager;
+    private final Handler handler = new ConnectionHandler(Looper.getMainLooper(), this);
     private MediaProjection mediaProjection;
     private Thread recorderThread;
 
@@ -53,6 +53,36 @@ public class RecordService extends Service {
         intent.setAction(ACTION_RECORD);
         intent.putExtra(EXTRA_MEDIA_PROJECTION_DATA, data);
         context.startForegroundService(intent);
+    }
+
+    private static LocalSocket connect() throws IOException {
+        try (LocalServerSocket localServerSocket = new LocalServerSocket(SOCKET_NAME)) {
+            return localServerSocket.accept();
+        }
+    }
+
+    private static AudioPlaybackCaptureConfiguration createAudioPlaybackCaptureConfig(MediaProjection mediaProjection) {
+        AudioPlaybackCaptureConfiguration.Builder confBuilder = new AudioPlaybackCaptureConfiguration.Builder(mediaProjection);
+        confBuilder.addMatchingUsage(AudioAttributes.USAGE_MEDIA);
+        confBuilder.addMatchingUsage(AudioAttributes.USAGE_GAME);
+        confBuilder.addMatchingUsage(AudioAttributes.USAGE_UNKNOWN);
+        return confBuilder.build();
+    }
+
+    private static AudioFormat createAudioFormat() {
+        AudioFormat.Builder builder = new AudioFormat.Builder();
+        builder.setEncoding(AudioFormat.ENCODING_PCM_16BIT);
+        builder.setSampleRate(SAMPLE_RATE);
+        builder.setChannelMask(CHANNELS == 2 ? AudioFormat.CHANNEL_IN_STEREO : AudioFormat.CHANNEL_IN_MONO);
+        return builder.build();
+    }
+
+    private static AudioRecord createAudioRecord(MediaProjection mediaProjection) {
+        AudioRecord.Builder builder = new AudioRecord.Builder();
+        builder.setAudioFormat(createAudioFormat());
+        builder.setBufferSizeInBytes(1024 * 1024);
+        builder.setAudioPlaybackCaptureConfig(createAudioPlaybackCaptureConfig(mediaProjection));
+        return builder.build();
     }
 
     @Override
@@ -80,7 +110,7 @@ public class RecordService extends Service {
         }
 
         Intent data = intent.getParcelableExtra(EXTRA_MEDIA_PROJECTION_DATA);
-        mediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
         mediaProjection = mediaProjectionManager.getMediaProjection(Activity.RESULT_OK, data);
         if (mediaProjection != null) {
             startRecording();
@@ -106,7 +136,6 @@ public class RecordService extends Service {
         return notificationBuilder.build();
     }
 
-
     private Intent createStopIntent() {
         Intent intent = new Intent(this, RecordService.class);
         intent.setAction(ACTION_STOP);
@@ -120,39 +149,6 @@ public class RecordService extends Service {
         String stopString = getString(R.string.action_stop);
         Notification.Action.Builder actionBuilder = new Notification.Action.Builder(stopIcon, stopString, stopPendingIntent);
         return actionBuilder.build();
-    }
-
-    private static LocalSocket connect() throws IOException {
-        LocalServerSocket localServerSocket = new LocalServerSocket(SOCKET_NAME);
-        try {
-            return localServerSocket.accept();
-        } finally {
-            localServerSocket.close();
-        }
-    }
-
-    private static AudioPlaybackCaptureConfiguration createAudioPlaybackCaptureConfig(MediaProjection mediaProjection) {
-        AudioPlaybackCaptureConfiguration.Builder confBuilder = new AudioPlaybackCaptureConfiguration.Builder(mediaProjection);
-        confBuilder.addMatchingUsage(AudioAttributes.USAGE_MEDIA);
-        confBuilder.addMatchingUsage(AudioAttributes.USAGE_GAME);
-        confBuilder.addMatchingUsage(AudioAttributes.USAGE_UNKNOWN);
-        return confBuilder.build();
-    }
-
-    private static AudioFormat createAudioFormat() {
-        AudioFormat.Builder builder = new AudioFormat.Builder();
-        builder.setEncoding(AudioFormat.ENCODING_PCM_16BIT);
-        builder.setSampleRate(SAMPLE_RATE);
-        builder.setChannelMask(CHANNELS == 2 ? AudioFormat.CHANNEL_IN_STEREO : AudioFormat.CHANNEL_IN_MONO);
-        return builder.build();
-    }
-
-    private static AudioRecord createAudioRecord(MediaProjection mediaProjection) {
-        AudioRecord.Builder builder = new AudioRecord.Builder();
-        builder.setAudioFormat(createAudioFormat());
-        builder.setBufferSizeInBytes(1024 * 1024);
-        builder.setAudioPlaybackCaptureConfig(createAudioPlaybackCaptureConfig(mediaProjection));
-        return builder.build();
     }
 
     private void startRecording() {
@@ -202,9 +198,10 @@ public class RecordService extends Service {
 
     private static final class ConnectionHandler extends Handler {
 
-        private RecordService service;
+        private final RecordService service;
 
-        ConnectionHandler(RecordService service) {
+        ConnectionHandler(Looper looper, RecordService service) {
+            super(looper);
             this.service = service;
         }
 

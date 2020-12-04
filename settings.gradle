@@ -1,2 +1,2 @@
-rootProject.name='sndcpy'
+rootProject.name = 'sndcpy'
 include ':app'

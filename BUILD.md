@@ -37,10 +37,10 @@ keytool -genkey -v -keystore sndcpy.keystore -alias sndcpy \
 Then, add these lines (and adapt) in `~/.gradle/gradle.properties`:
 
 ```bash
-SNDCPY_STORE_FILE=/path/to/your/sndcpy.keystore
-SNDCPY_STORE_PASSWORD=the_keystore_password
-SNDCPY_KEY_ALIAS=sndcpy
-SNDCPY_KEY_PASSWORD=the_key_password
+RELEASE_STORE_FILE=/path/to/your/sndcpy.keystore
+RELEASE_STORE_PASSWOR=the_keystore_password
+RELEASE_KEY_ALIAS=sndcpy
+RELEASE_KEY_PASSWORD=the_key_password
 ```
 
 Then, execute `./release.sh`. It will generate a release in `dist/`.

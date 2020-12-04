@@ -11,8 +11,8 @@
         android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name="com.rom1v.sndcpy.MainActivity"
-            android:theme="@style/Theme.Transparent"
             android:showWhenLocked="true"
+            android:theme="@style/Theme.Transparent"
             android:turnScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
